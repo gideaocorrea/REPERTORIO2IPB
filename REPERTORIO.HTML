@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusicApp Firebase</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4cc9f0;
+        }
+        
+        .logo i {
+            margin-right: 8px;
+        }
+        
+        .upload-btn {
+            background: rgba(76, 201, 240, 0.2);
+            color: #4cc9f0;
+            border: 1px solid #4cc9f0;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        
+        .upload-btn i {
+            margin-right: 5px;
+        }
+        
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .search-container input {
+            width: 100%;
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding-left: 45px;
+            font-size: 16px;
+        }
+        
+        .search-container i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #ccc;
+        }
+        
+        .playlist {
+            margin-top: 20px;
+        }
+        
+        .playlist h2 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .song-list {
+            list-style: none;
+        }
+        
+        .song-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: background 0.3s;
+            position: relative;
+        }
+        
+        .song-item:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .song-item img {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-right: 15px;
+            background: #4cc9f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .song-info {
+            flex: 1;
+        }
+        
+        .song-info h3 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        
+        .song-info p {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+        
+        .song-item .play-btn {
+            color: #4cc9f0;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .song-item .delete-btn {
+            color: #ff4d4d;
+            font-size: 1.2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .progress-container {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #4cc9f0;
+            border-radius: 5px;
+            transition: width 0.1s;
+        }
+        
+        .time {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.7rem;
+            color: #a0a0a0;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 300px;
+            margin-top: 10px;
+        }
+        
+        .controls button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        .controls .play-pause {
+            font-size: 2rem;
+            color: #4cc9f0;
+        }
+        
+        .current-song {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        
+        .current-song img {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-right: 15px;
+            background: #4cc9f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .current-song-info {
+            flex: 1;
+        }
+        
+        .current-song-info h3 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+        
+        .current-song-info p {
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+        
+        .volume-container {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .volume-container i {
+            margin-right: 10px;
+            color: #a0a0a0;
+        }
+        
+        .volume-slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4cc9f0;
+            cursor: pointer;
+        }
+        
+        .upload-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .upload-form {
+            background: #1a1a2e;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+        
+        .upload-form h2 {
+            margin-bottom: 15px;
+            text-align: center;
+            color: #4cc9f0;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .form-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .cancel-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .submit-btn {
+            background: #4cc9f0;
+            color: #1a1a2e;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 0;
+            color: #a0a0a0;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #4cc9f0;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4cc9f0;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1001;
+            display: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+            color: #4cc9f0;
+        }
+        
+        /* Adicionando responsividade */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-music"></i>
+                <span>MusicApp Firebase</span>
+            </div>
+            <button class="upload-btn" id="upload-btn">
+                <i class="fas fa-plus"></i>
+                <span>Adicionar</span>
+            </button>
+        </header>
+        
+        <div class="search-container">
+            <i class="fas fa-search"></i>
+            <input type="text" id="search-input" placeholder="Pesquisar músicas...">
+        </div>
+        
+        <div class="playlist">
+            <h2>Suas Músicas</h2>
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Carregando músicas...</p>
+            </div>
+            <ul class="song-list" id="song-list">
+                <div class="empty-state" id="empty-state">
+                    <i class="fas fa-music"></i>
+                    <p>Nenhuma música adicionada</p>
+                    <p>Use o botão "Adicionar" para enviar suas músicas</p>
+                </div>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="player">
+        <div class="current-song">
+            <img id="current-song-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'><rect width='50' height='50' fill='%234cc9f0'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='20' fill='white'>♪</text></svg>" alt="Capa da música">
+            <div class="current-song-info">
+                <h3 id="current-song-title">Nenhuma música selecionada</h3>
+                <p id="current-song-artist">Selecione uma música para tocar</p>
+            </div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress" id="progress">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="time">
+                <span id="current-time">0:00</span>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="shuffle-btn"><i class="fas fa-random"></i></button>
+            <button id="prev-btn"><i class="fas fa-step-backward"></i></button>
+            <button id="play-pause-btn" class="play-pause"><i class="fas fa-play"></i></button>
+            <button id="next-btn"><i class="fas fa-step-forward"></i></button>
+            <button id="repeat-btn"><i class="fas fa-redo"></i></button>
+        </div>
+        
+        <div class="volume-container">
+            <i class="fas fa-volume-up"></i>
+            <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="70">
+        </div>
+    </div>
+
+    <div class="upload-container" id="upload-container">
+        <div class="upload-form">
+            <h2>Adicionar Música</h2>
+            <div class="form-group">
+                <label for="song-title">Título da Música</label>
+                <input type="text" id="song-title" placeholder="Digite o título">
+            </div>
+            <div class="form-group">
+                <label for="song-artist">Artista</label>
+                <input type="text" id="song-artist" placeholder="Digite o nome do artista">
+            </div>
+            <div class="form-group">
+                <label for="song-file">Arquivo MP3</label>
+                <input type="file" id="song-file" accept=".mp3">
+            </div>
+            <div class="form-actions">
+                <button class="cancel-btn" id="cancel-upload">Cancelar</button>
+                <button class="submit-btn" id="submit-upload">Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        Música adicionada com sucesso!
+    </div>
+
+    <script>
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvA3-projeto-colar-aqui-sua-chave",
+            authDomain: "repertorio2ipb.firebaseapp.com",
+            databaseURL: "https://repertorio2ipb-default-rtdb.firebaseio.com",
+            projectId: "repertorio2ipb",
+            storageBucket: "repertorio2ipb.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123def456"
+        };
+        
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const storage = firebase.storage();
+        
+        // Elementos do DOM
+        const songListElement = document.getElementById('song-list');
+        const searchInput = document.getElementById('search-input');
+        const currentSongImg = document.getElementById('current-song-img');
+        const currentSongTitle = document.getElementById('current-song-title');
+        const currentSongArtist = document.getElementById('current-song-artist');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress');
+        const currentTimeElement = document.getElementById('current-time');
+        const totalTimeElement = document.getElementById('total-time');
+        const volumeSlider = document.getElementById('volume-slider');
+        const uploadBtn = document.getElementById('upload-btn');
+        const uploadContainer = document.getElementById('upload-container');
+        const cancelUpload = document.getElementById('cancel-upload');
+        const submitUpload = document.getElementById('submit-upload');
+        const songTitleInput = document.getElementById('song-title');
+        const songArtistInput = document.getElementById('song-artist');
+        const songFileInput = document.getElementById('song-file');
+        const emptyState = document.getElementById('empty-state');
+        const notification = document.getElementById('notification');
+        const loadingElement = document.getElementById('loading');
+        
+        // Variáveis de estado
+        let currentSongIndex = 0;
+        let isPlaying = false;
+        let audio = new Audio();
+        let songs = [];
+        
+        // Função para mostrar notificação
+        function showNotification(message) {
+            notification.textContent = message;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Função para formatar o tempo em minutos:segundos
+        function formatTime(seconds) {
+            const min = Math.floor(seconds / 60);
+            const sec = Math.floor(seconds % 60);
+            return `${min}:${sec < 10 ? '0' + sec : sec}`;
+        }
+        
+        // Função para carregar a lista de músicas do Firebase
+        function loadSongsFromFirebase() {
+            loadingElement.style.display = 'block';
+            emptyState.style.display = 'none';
+            
+            database.ref('songs').on('value', (snapshot) => {
+                songs = [];
+                snapshot.forEach((childSnapshot) => {
+                    const song = childSnapshot.val();
+                    song.id = childSnapshot.key;
+                    songs.push(song);
+                });
+                
+                loadingElement.style.display = 'none';
+                renderSongs(songs);
+            });
+        }
+        
+        // Função para renderizar a lista de músicas
+        function renderSongs(songsArray) {
+            if (songsArray.length === 0) {
+                emptyState.style.display = 'block';
+                songListElement.innerHTML = '';
+                songListElement.appendChild(emptyState);
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            songListElement.innerHTML = '';
+            
+            songsArray.forEach((song, index) => {
+                const li = document.createElement('li');
+                li.className = 'song-item';
+                li.innerHTML = `
+                    <img src="${song.cover || 'data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"50\" height=\"50\" viewBox=\"0 0 50 50\"><rect width=\"50\" height=\"50\" fill=\"%234cc9f0\"/><text x=\"50%\" y=\"50%\" dominant-baseline=\"middle\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"20\" fill=\"white\">♪</text></svg>'}" alt="${song.title}">
+                    <div class="song-info">
+                        <h3>${song.title}</h3>
+                        <p>${song.artist} • ${song.duration || '0:00'}</p>
+                    </div>
+                    <button class="play-btn" data-index="${index}">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="delete-btn" data-id="${song.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                songListElement.appendChild(li);
+            });
+            
+            // Adiciona event listeners para os botões de play
+            document.querySelectorAll('.play-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    playSong(index);
+                });
+            });
+            
+            // Adiciona event listeners para os botões de delete
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const songId = this.getAttribute('data-id');
+                    deleteSong(songId);
+                });
+            });
+        }
+        
+        // Função para adicionar uma música ao Firebase
+        function addSongToFirebase(songData, file) {
+            loadingElement.style.display = 'block';
+            
+            // Fazer upload do arquivo MP3 para o Firebase Storage
+            const storageRef = storage.ref();
+            const fileRef = storageRef.child('songs/' + Date.now() + '_' + file.name);
+            
+            fileRef.put(file).then((snapshot) => {
+                // Obter a URL de download do arquivo
+                return snapshot.ref.getDownloadURL();
+            }).then((downloadURL) => {
+                // Adicionar a música ao Realtime Database
+                songData.file = downloadURL;
+                return database.ref('songs').push(songData);
+            }).then(() => {
+                showNotification('Música adicionada com sucesso!');
+                loadingElement.style.display = 'none';
+            }).catch((error) => {
+                console.error('Erro ao adicionar música:', error);
+                showNotification('Erro ao adicionar música. Tente novamente.');
+                loadingElement.style.display = 'none';
+            });
+        }
+        
+        // Função para excluir uma música do Firebase
+        function deleteSong(songId) {
+            if (!confirm('Tem certeza que deseja excluir esta música?')) {
+                return;
+            }
+            
+            loadingElement.style.display = 'block';
+            
+            // Primeiro, obtemos a referência da música para pegar a URL do arquivo
+            database.ref('songs/' + songId).once('value').then((snapshot) => {
+                const song = snapshot.val();
+                
+                // Excluir o arquivo do Storage
+                if (song.file) {
+                    const fileRef = storage.refFromURL(song.file);
+                    return fileRef.delete().then(() => {
+                        // Depois excluir do Database
+                        return database.ref('songs/' + songId).remove();
+                    });
+                } else {
+                    // Se não tiver arquivo, apenas excluir do Database
+                    return database.ref('songs/' + songId).remove();
+                }
+            }).then(() => {
+                showNotification('Música excluída com sucesso!');
+                loadingElement.style.display = 'none';
+            }).catch((error) => {
+                console.error('Erro ao excluir música:', error);
+                showNotification('Erro ao excluir música. Tente novamente.');
+                loadingElement.style.display = 'none';
+            });
+        }
+        
+        // Função para tocar uma música
+        function playSong(index) {
+            if (index < 0 || index >= songs.length) return;
+            
+            currentSongIndex = index;
+            const song = songs[currentSongIndex];
+            
+            // Atualiza a interface
+            currentSongImg.src = song.cover || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><rect width="50" height="50" fill="%234cc9f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="20" fill="white">♪</text></svg>';
+            currentSongTitle.textContent = song.title;
+            currentSongArtist.textContent = song.artist;
+            
+            // Configura o áudio
+            audio.src = song.file;
+            audio.load();
+            audio.play();
+            isPlaying = true;
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            
+            // Atualiza o tempo total
+            audio.addEventListener('loadedmetadata', function() {
+                totalTimeElement.textContent = formatTime(audio.duration);
+            });
+        }
+        
+        // Função para pausar a música
+        function pauseSong() {
+            audio.pause();
+            isPlaying = false;
+            playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+        
+        // Função para continuar a música
+        function resumeSong() {
+            audio.play();
+            isPlaying = true;
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+        }
+        
+        // Função para tocar a próxima música
+        function nextSong() {
+            let nextIndex = (currentSongIndex + 1) % songs.length;
+            playSong(nextIndex);
+        }
+        
+        // Função para tocar a música anterior
+        function prevSong() {
+            let prevIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+            playSong(prevIndex);
+        }
+        
+        // Função para atualizar a barra de progresso
+        function updateProgress() {
+            if (audio.duration) {
+                const progressPercent = (audio.currentTime / audio.duration) * 100;
+                progressBar.style.width = `${progressPercent}%`;
+                currentTimeElement.textContent = formatTime(audio.currentTime);
+            }
+        }
+        
+        // Função para definir a posição da música ao clicar na barra de progresso
+        function setProgress(e) {
+            const width = this.clientWidth;
+            const clickX = e.offsetX;
+            const duration = audio.duration;
+            
+            audio.currentTime = (clickX / width) * duration;
+        }
+        
+        // Função para buscar músicas
+        function searchSongs() {
+            const query = searchInput.value.toLowerCase();
+            if (query === '') {
+                renderSongs(songs);
+                return;
+            }
+            
+            const filteredSongs = songs.filter(song => 
+                song.title.toLowerCase().includes(query) || 
+                song.artist.toLowerCase().includes(query)
+            );
+            renderSongs(filteredSongs);
+        }
+        
+        // Função para adicionar uma nova música
+        function addSong(e) {
+            e.preventDefault();
+            
+            const title = songTitleInput.value.trim();
+            const artist = songArtistInput.value.trim();
+            const file = songFileInput.files[0];
+            
+            if (!title || !artist || !file) {
+                showNotification('Por favor, preencha todos os campos e selecione um arquivo.');
+                return;
+            }
+            
+            if (file.type !== 'audio/mpeg') {
+                showNotification('Por favor, selecione um arquivo MP3 válido.');
+                return;
+            }
+            
+            const songData = {
+                title: title,
+                artist: artist,
+                duration: '0:00',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            addSongToFirebase(songData, file);
+            
+            // Limpar o formulário
+            songTitleInput.value = '';
+            songArtistInput.value = '';
+            songFileInput.value = '';
+            uploadContainer.style.display = 'none';
+        }
+        
+        // Event Listeners
+        playPauseBtn.addEventListener('click', function() {
+            if (songs.length === 0) return;
+            
+            if (isPlaying) {
+                pauseSong();
+            } else {
+                if (audio.src) {
+                    resumeSong();
+                } else {
+                    playSong(0);
+                }
+            }
+        });
+        
+        nextBtn.addEventListener('click', nextSong);
+        prevBtn.addEventListener('click', prevSong);
+        
+        audio.addEventListener('timeupdate', updateProgress);
+        
+        audio.addEventListener('ended', nextSong);
+        
+        searchInput.addEventListener('input', searchSongs);
+        
+        volumeSlider.addEventListener('input', function() {
+            audio.volume = this.value / 100;
+        });
+        
+        progressContainer.addEventListener('click', setProgress);
+        
+        uploadBtn.addEventListener('click', function() {
+            uploadContainer.style.display = 'flex';
+        });
+        
+        cancelUpload.addEventListener('click', function() {
+            uploadContainer.style.display = 'none';
+        });
+        
+        submitUpload.addEventListener('click', addSong);
+        
+        // Inicializa a aplicação
+        loadSongsFromFirebase();
+    </script>
+</body>
+</html>
