@@ -506,19 +506,26 @@
     </div>
 
     <script>
-        // Configuração do Firebase
+        // CONFIGURAÇÃO DO FIREBASE COM SUAS CREDENCIAIS
         const firebaseConfig = {
-            apiKey: "AIzaSyDvA3-projeto-colar-aqui-sua-chave",
+            apiKey: "AIzaSyCfChkq885Vh9gRl9UWGVgX1D7PrTyNw9I",
             authDomain: "repertorio2ipb.firebaseapp.com",
             databaseURL: "https://repertorio2ipb-default-rtdb.firebaseio.com",
             projectId: "repertorio2ipb",
-            storageBucket: "repertorio2ipb.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abc123def456"
+            storageBucket: "repertorio2ipb.firebasestorage.app",
+            messagingSenderId: "552384659874",
+            appId: "1:552384659874:web:fa75617f3885f4251732fb",
+            measurementId: "G-G4N6X1145P"
         };
         
         // Inicializar Firebase
-        firebase.initializeApp(firebaseConfig);
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('Firebase inicializado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao inicializar Firebase:', error);
+        }
+        
         const database = firebase.database();
         const storage = firebase.storage();
         
@@ -574,16 +581,27 @@
             loadingElement.style.display = 'block';
             emptyState.style.display = 'none';
             
+            console.log('Carregando músicas do Firebase...');
+            
             database.ref('songs').on('value', (snapshot) => {
                 songs = [];
-                snapshot.forEach((childSnapshot) => {
-                    const song = childSnapshot.val();
-                    song.id = childSnapshot.key;
-                    songs.push(song);
-                });
+                if (snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        const song = childSnapshot.val();
+                        song.id = childSnapshot.key;
+                        songs.push(song);
+                    });
+                    console.log(`${songs.length} músicas carregadas`);
+                } else {
+                    console.log('Nenhuma música encontrada no banco de dados');
+                }
                 
                 loadingElement.style.display = 'none';
                 renderSongs(songs);
+            }, (error) => {
+                console.error('Erro ao carregar músicas:', error);
+                loadingElement.style.display = 'none';
+                showNotification('Erro ao carregar músicas');
             });
         }
         
@@ -639,18 +657,27 @@
         function addSongToFirebase(songData, file) {
             loadingElement.style.display = 'block';
             
+            console.log('Iniciando upload da música...');
+            
             // Fazer upload do arquivo MP3 para o Firebase Storage
             const storageRef = storage.ref();
             const fileRef = storageRef.child('songs/' + Date.now() + '_' + file.name);
             
             fileRef.put(file).then((snapshot) => {
+                console.log('Upload do arquivo concluído');
                 // Obter a URL de download do arquivo
                 return snapshot.ref.getDownloadURL();
             }).then((downloadURL) => {
+                console.log('URL de download obtida:', downloadURL);
                 // Adicionar a música ao Realtime Database
                 songData.file = downloadURL;
+                songData.fileName = file.name;
+                songData.fileSize = file.size;
+                songData.uploadDate = new Date().toISOString();
+                
                 return database.ref('songs').push(songData);
             }).then(() => {
+                console.log('Música adicionada ao banco de dados');
                 showNotification('Música adicionada com sucesso!');
                 loadingElement.style.display = 'none';
             }).catch((error) => {
@@ -672,10 +699,15 @@
             database.ref('songs/' + songId).once('value').then((snapshot) => {
                 const song = snapshot.val();
                 
+                if (!song) {
+                    throw new Error('Música não encontrada');
+                }
+                
                 // Excluir o arquivo do Storage
                 if (song.file) {
                     const fileRef = storage.refFromURL(song.file);
                     return fileRef.delete().then(() => {
+                        console.log('Arquivo excluído do Storage');
                         // Depois excluir do Database
                         return database.ref('songs/' + songId).remove();
                     });
@@ -684,6 +716,7 @@
                     return database.ref('songs/' + songId).remove();
                 }
             }).then(() => {
+                console.log('Música excluída com sucesso');
                 showNotification('Música excluída com sucesso!');
                 loadingElement.style.display = 'none';
             }).catch((error) => {
@@ -700,6 +733,8 @@
             currentSongIndex = index;
             const song = songs[currentSongIndex];
             
+            console.log('Tocando música:', song.title);
+            
             // Atualiza a interface
             currentSongImg.src = song.cover || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><rect width="50" height="50" fill="%234cc9f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="20" fill="white">♪</text></svg>';
             currentSongTitle.textContent = song.title;
@@ -708,9 +743,14 @@
             // Configura o áudio
             audio.src = song.file;
             audio.load();
-            audio.play();
-            isPlaying = true;
-            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            audio.play().then(() => {
+                isPlaying = true;
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                console.log('Música iniciada');
+            }).catch(error => {
+                console.error('Erro ao reproduzir música:', error);
+                showNotification('Erro ao reproduzir música');
+            });
             
             // Atualiza o tempo total
             audio.addEventListener('loadedmetadata', function() {
@@ -723,13 +763,18 @@
             audio.pause();
             isPlaying = false;
             playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+            console.log('Música pausada');
         }
         
         // Função para continuar a música
         function resumeSong() {
-            audio.play();
-            isPlaying = true;
-            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            audio.play().then(() => {
+                isPlaying = true;
+                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                console.log('Música retomada');
+            }).catch(error => {
+                console.error('Erro ao retomar música:', error);
+            });
         }
         
         // Função para tocar a próxima música
@@ -813,7 +858,10 @@
         
         // Event Listeners
         playPauseBtn.addEventListener('click', function() {
-            if (songs.length === 0) return;
+            if (songs.length === 0) {
+                showNotification('Adicione músicas primeiro!');
+                return;
+            }
             
             if (isPlaying) {
                 pauseSong();
@@ -851,8 +899,49 @@
         
         submitUpload.addEventListener('click', addSong);
         
+        // Fechar modal ao clicar fora dele
+        uploadContainer.addEventListener('click', function(e) {
+            if (e.target === uploadContainer) {
+                uploadContainer.style.display = 'none';
+            }
+        });
+        
         // Inicializa a aplicação
+        console.log('Inicializando MusicApp...');
         loadSongsFromFirebase();
+        
+        // Configurar regras do Firebase (instruções)
+        console.log(`
+        ========================================
+        CONFIGURAÇÃO DO FIREBASE:
+        
+        1. Acesse: https://console.firebase.google.com/
+        2. Selecione o projeto: repertorio2ipb
+        3. Vá em "Storage" e ative o serviço
+        4. Vá em "Realtime Database" e ative o serviço
+        5. Configure as regras de segurança:
+        
+        REGRAS DO STORAGE:
+        rules_version = '2';
+        service firebase.storage {
+          match /b/{bucket}/o {
+            match /songs/{allPaths=**} {
+              allow read, write: if true;
+            }
+          }
+        }
+        
+        REGRAS DO DATABASE:
+        {
+          "rules": {
+            "songs": {
+              ".read": true,
+              ".write": true
+            }
+          }
+        }
+        ========================================
+        `);
     </script>
 </body>
 </html>
