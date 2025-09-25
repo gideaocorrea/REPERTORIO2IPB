@@ -158,6 +158,15 @@
             margin-right: 10px;
         }
         
+        .song-item .download-btn {
+            color: #4cc9f0;
+            font-size: 1.2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
         .song-item .delete-btn {
             color: #ff4d4d;
             font-size: 1.2rem;
@@ -178,6 +187,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            z-index: 100;
         }
         
         .progress-container {
@@ -506,26 +516,19 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO FIREBASE COM SUAS CREDENCIAIS
+        // Configuração do Firebase
         const firebaseConfig = {
-            apiKey: "AIzaSyCfChkq885Vh9gRl9UWGVgX1D7PrTyNw9I",
+            apiKey: "AIzaSyDvA3-projeto-colar-aqui-sua-chave",
             authDomain: "repertorio2ipb.firebaseapp.com",
             databaseURL: "https://repertorio2ipb-default-rtdb.firebaseio.com",
             projectId: "repertorio2ipb",
-            storageBucket: "repertorio2ipb.firebasestorage.app",
-            messagingSenderId: "552384659874",
-            appId: "1:552384659874:web:fa75617f3885f4251732fb",
-            measurementId: "G-G4N6X1145P"
+            storageBucket: "repertorio2ipb.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc123def456"
         };
         
         // Inicializar Firebase
-        try {
-            firebase.initializeApp(firebaseConfig);
-            console.log('Firebase inicializado com sucesso!');
-        } catch (error) {
-            console.error('Erro ao inicializar Firebase:', error);
-        }
-        
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const storage = firebase.storage();
         
@@ -559,6 +562,7 @@
         let isPlaying = false;
         let audio = new Audio();
         let songs = [];
+        let isDragging = false;
         
         // Função para mostrar notificação
         function showNotification(message) {
@@ -581,27 +585,16 @@
             loadingElement.style.display = 'block';
             emptyState.style.display = 'none';
             
-            console.log('Carregando músicas do Firebase...');
-            
             database.ref('songs').on('value', (snapshot) => {
                 songs = [];
-                if (snapshot.exists()) {
-                    snapshot.forEach((childSnapshot) => {
-                        const song = childSnapshot.val();
-                        song.id = childSnapshot.key;
-                        songs.push(song);
-                    });
-                    console.log(`${songs.length} músicas carregadas`);
-                } else {
-                    console.log('Nenhuma música encontrada no banco de dados');
-                }
+                snapshot.forEach((childSnapshot) => {
+                    const song = childSnapshot.val();
+                    song.id = childSnapshot.key;
+                    songs.push(song);
+                });
                 
                 loadingElement.style.display = 'none';
                 renderSongs(songs);
-            }, (error) => {
-                console.error('Erro ao carregar músicas:', error);
-                loadingElement.style.display = 'none';
-                showNotification('Erro ao carregar músicas');
             });
         }
         
@@ -626,6 +619,9 @@
                         <h3>${song.title}</h3>
                         <p>${song.artist} • ${song.duration || '0:00'}</p>
                     </div>
+                    <button class="download-btn" data-url="${song.file}" data-filename="${song.title} - ${song.artist}.mp3">
+                        <i class="fas fa-download"></i>
+                    </button>
                     <button class="play-btn" data-index="${index}">
                         <i class="fas fa-play"></i>
                     </button>
@@ -644,6 +640,15 @@
                 });
             });
             
+            // Adiciona event listeners para os botões de download
+            document.querySelectorAll('.download-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const fileUrl = this.getAttribute('data-url');
+                    const filename = this.getAttribute('data-filename');
+                    downloadSong(fileUrl, filename);
+                });
+            });
+            
             // Adiciona event listeners para os botões de delete
             document.querySelectorAll('.delete-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -653,31 +658,40 @@
             });
         }
         
+        // Função para baixar uma música
+        function downloadSong(fileUrl, filename) {
+            showNotification('Iniciando download...');
+            
+            // Criar um link temporário para download
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = filename;
+            link.target = '_blank';
+            
+            // Adicionar ao DOM, clicar e remover
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showNotification('Download iniciado!');
+        }
+        
         // Função para adicionar uma música ao Firebase
         function addSongToFirebase(songData, file) {
             loadingElement.style.display = 'block';
-            
-            console.log('Iniciando upload da música...');
             
             // Fazer upload do arquivo MP3 para o Firebase Storage
             const storageRef = storage.ref();
             const fileRef = storageRef.child('songs/' + Date.now() + '_' + file.name);
             
             fileRef.put(file).then((snapshot) => {
-                console.log('Upload do arquivo concluído');
                 // Obter a URL de download do arquivo
                 return snapshot.ref.getDownloadURL();
             }).then((downloadURL) => {
-                console.log('URL de download obtida:', downloadURL);
                 // Adicionar a música ao Realtime Database
                 songData.file = downloadURL;
-                songData.fileName = file.name;
-                songData.fileSize = file.size;
-                songData.uploadDate = new Date().toISOString();
-                
                 return database.ref('songs').push(songData);
             }).then(() => {
-                console.log('Música adicionada ao banco de dados');
                 showNotification('Música adicionada com sucesso!');
                 loadingElement.style.display = 'none';
             }).catch((error) => {
@@ -699,15 +713,10 @@
             database.ref('songs/' + songId).once('value').then((snapshot) => {
                 const song = snapshot.val();
                 
-                if (!song) {
-                    throw new Error('Música não encontrada');
-                }
-                
                 // Excluir o arquivo do Storage
                 if (song.file) {
                     const fileRef = storage.refFromURL(song.file);
                     return fileRef.delete().then(() => {
-                        console.log('Arquivo excluído do Storage');
                         // Depois excluir do Database
                         return database.ref('songs/' + songId).remove();
                     });
@@ -716,7 +725,6 @@
                     return database.ref('songs/' + songId).remove();
                 }
             }).then(() => {
-                console.log('Música excluída com sucesso');
                 showNotification('Música excluída com sucesso!');
                 loadingElement.style.display = 'none';
             }).catch((error) => {
@@ -733,8 +741,6 @@
             currentSongIndex = index;
             const song = songs[currentSongIndex];
             
-            console.log('Tocando música:', song.title);
-            
             // Atualiza a interface
             currentSongImg.src = song.cover || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50"><rect width="50" height="50" fill="%234cc9f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="20" fill="white">♪</text></svg>';
             currentSongTitle.textContent = song.title;
@@ -743,14 +749,9 @@
             // Configura o áudio
             audio.src = song.file;
             audio.load();
-            audio.play().then(() => {
-                isPlaying = true;
-                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                console.log('Música iniciada');
-            }).catch(error => {
-                console.error('Erro ao reproduzir música:', error);
-                showNotification('Erro ao reproduzir música');
-            });
+            audio.play();
+            isPlaying = true;
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
             
             // Atualiza o tempo total
             audio.addEventListener('loadedmetadata', function() {
@@ -763,18 +764,13 @@
             audio.pause();
             isPlaying = false;
             playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
-            console.log('Música pausada');
         }
         
         // Função para continuar a música
         function resumeSong() {
-            audio.play().then(() => {
-                isPlaying = true;
-                playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-                console.log('Música retomada');
-            }).catch(error => {
-                console.error('Erro ao retomar música:', error);
-            });
+            audio.play();
+            isPlaying = true;
+            playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
         }
         
         // Função para tocar a próxima música
@@ -791,7 +787,7 @@
         
         // Função para atualizar a barra de progresso
         function updateProgress() {
-            if (audio.duration) {
+            if (audio.duration && !isDragging) {
                 const progressPercent = (audio.currentTime / audio.duration) * 100;
                 progressBar.style.width = `${progressPercent}%`;
                 currentTimeElement.textContent = formatTime(audio.currentTime);
@@ -800,11 +796,70 @@
         
         // Função para definir a posição da música ao clicar na barra de progresso
         function setProgress(e) {
+            if (!audio.duration) return;
+            
             const width = this.clientWidth;
             const clickX = e.offsetX;
             const duration = audio.duration;
             
             audio.currentTime = (clickX / width) * duration;
+        }
+        
+        // Função para arrastar a barra de progresso
+        function startDrag(e) {
+            if (!audio.duration) return;
+            
+            isDragging = true;
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', stopDrag);
+            
+            // Atualizar imediatamente
+            updateProgressOnDrag(e);
+        }
+        
+        function drag(e) {
+            if (!isDragging) return;
+            updateProgressOnDrag(e);
+        }
+        
+        function stopDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', stopDrag);
+        }
+        
+        function updateProgressOnDrag(e) {
+            const width = progressContainer.clientWidth;
+            let clientX;
+            
+            if (e.type.includes('touch')) {
+                clientX = e.touches[0].clientX;
+            } else {
+                clientX = e.clientX;
+            }
+            
+            const rect = progressContainer.getBoundingClientRect();
+            const clickX = clientX - rect.left;
+            const duration = audio.duration;
+            
+            let percent = (clickX / width) * 100;
+            percent = Math.max(0, Math.min(100, percent)); // Limitar entre 0 e 100
+            
+            progressBar.style.width = `${percent}%`;
+            
+            if (duration) {
+                const newTime = (percent / 100) * duration;
+                currentTimeElement.textContent = formatTime(newTime);
+                
+                // Se estiver soltando (fim do arraste), atualizar o tempo do áudio
+                if (e.type === 'mouseup' || e.type === 'touchend') {
+                    audio.currentTime = newTime;
+                }
+            }
         }
         
         // Função para buscar músicas
@@ -858,10 +913,7 @@
         
         // Event Listeners
         playPauseBtn.addEventListener('click', function() {
-            if (songs.length === 0) {
-                showNotification('Adicione músicas primeiro!');
-                return;
-            }
+            if (songs.length === 0) return;
             
             if (isPlaying) {
                 pauseSong();
@@ -887,7 +939,10 @@
             audio.volume = this.value / 100;
         });
         
+        // Event listeners para a barra de progresso (clique e arraste)
         progressContainer.addEventListener('click', setProgress);
+        progressContainer.addEventListener('mousedown', startDrag);
+        progressContainer.addEventListener('touchstart', startDrag);
         
         uploadBtn.addEventListener('click', function() {
             uploadContainer.style.display = 'flex';
@@ -899,49 +954,8 @@
         
         submitUpload.addEventListener('click', addSong);
         
-        // Fechar modal ao clicar fora dele
-        uploadContainer.addEventListener('click', function(e) {
-            if (e.target === uploadContainer) {
-                uploadContainer.style.display = 'none';
-            }
-        });
-        
         // Inicializa a aplicação
-        console.log('Inicializando MusicApp...');
         loadSongsFromFirebase();
-        
-        // Configurar regras do Firebase (instruções)
-        console.log(`
-        ========================================
-        CONFIGURAÇÃO DO FIREBASE:
-        
-        1. Acesse: https://console.firebase.google.com/
-        2. Selecione o projeto: repertorio2ipb
-        3. Vá em "Storage" e ative o serviço
-        4. Vá em "Realtime Database" e ative o serviço
-        5. Configure as regras de segurança:
-        
-        REGRAS DO STORAGE:
-        rules_version = '2';
-        service firebase.storage {
-          match /b/{bucket}/o {
-            match /songs/{allPaths=**} {
-              allow read, write: if true;
-            }
-          }
-        }
-        
-        REGRAS DO DATABASE:
-        {
-          "rules": {
-            "songs": {
-              ".read": true,
-              ".write": true
-            }
-          }
-        }
-        ========================================
-        `);
     </script>
 </body>
 </html>
